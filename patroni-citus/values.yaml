@@ -1,6 +1,6 @@
 
 image:
-  repository: asia.gcr.io/onemg-dp-np/dp-streaming/patroni-citus-k8s
+  repository: thuyenhx/patroni-citus-k8s
   pullPolicy: IfNotPresent
   tag: "0.7"
 
@@ -47,7 +47,7 @@ secret:
 serviceAccount:
   create: true
   annotations: {}
-#     iam.gke.io/gcp-service-account: wi-citus-worker@onemg-dp-np.iam.gserviceaccount.com
+#     iam.gke.io/gcp-service-account: wi-citus-worker
   name: "citus-demo"
 
 env:
