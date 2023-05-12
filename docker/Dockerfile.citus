@@ -37,6 +37,9 @@ RUN sed -i 's/^postgresql:/&\n  basebackup:\n    checkpoint: fast/' /entrypoint.
 
 EXPOSE 5432 8008
 ENV LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 EDITOR=/usr/bin/editor
+
+RUN chown -R postgres:postgres /etc/ssl/private
 USER postgres
+RUN chmod 0600 /etc/ssl/private/*
 WORKDIR /home/postgres
 CMD ["/bin/bash", "/entrypoint.sh"]
