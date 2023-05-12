@@ -1,0 +1,45 @@
+# headless services to avoid deletion of citusdemo-*-config endpoints
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.cluster.name }}-0-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-group: '0'
+spec:
+  clusterIP: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.cluster.name }}-1-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-group: '1'
+spec:
+  clusterIP: None
+
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: {{ .Values.cluster.name }}-2-config
+#   labels:
+#     application: {{ .Values.cluster.application }}
+#     cluster-name: {{ .Values.cluster.name }}
+#     citus-group: '2'
+# spec:
+#   clusterIP: None

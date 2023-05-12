@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {{ .Values.cluster.name }}-1
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-group: '1'
+    citus-type: {{ .Values.worker.type }}
+subsets: []
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.cluster.name }}-1
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-group: '1'
+    citus-type: {{ .Values.worker.type }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.port }}
+
+# ---
+# apiVersion: v1
+# kind: Endpoints
+# metadata:
+#   name: {{ .Values.cluster.name }}-2
+#   labels:
+#     tier: patroni-citus
+#     release: {{ .Release.Name }}
+#     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+#     heritage: {{ .Release.Service }}
+#     application: {{ .Values.cluster.application }}
+#     cluster-name: {{ .Values.cluster.name }}
+#     citus-group: '2'
+#     citus-type: {{ .Values.worker.type }}
+# subsets: []
+#
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: {{ .Values.cluster.name }}-2
+#   labels:
+#     tier: patroni-citus
+#     release: {{ .Release.Name }}
+#     chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+#     heritage: {{ .Release.Service }}
+#     application: {{ .Values.cluster.application }}
+#     cluster-name: {{ .Values.cluster.name }}
+#     citus-group: '2'
+#     citus-type: {{ .Values.worker.type }}
+# spec:
+#   type: ClusterIP
+#   ports:
+#   - port: {{ .Values.service.port }}
+#     targetPort: {{ .Values.service.port }}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.cluster.name }}-workers
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-type: {{ .Values.worker.type }}
+    role: master
+spec:
+  type: ClusterIP
+  selector:
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-type: {{ .Values.worker.type }}
+    role: master
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.port }}

@@ -1,0 +1,138 @@
+
+image:
+  repository: asia.gcr.io/onemg-dp-np/dp-streaming/patroni-citus-k8s
+  pullPolicy: IfNotPresent
+  tag: "0.7"
+
+citusPodAnnotations: {}
+#   cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+
+securityContext:
+  podConfig:
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    fsGroupChangePolicy: "Always"
+  containerConfig:
+    runAsUser: 999
+    runAsNonRoot: true
+    readOnlyRootFilesystem: false
+    allowPrivilegeEscalation: true
+
+cluster:
+  name: citus-demo
+  application: patroni
+
+labels: {}
+
+ingress: {}
+
+secret:
+- envName: PATRONI_CITUS_DATABASE
+  secretName: citus-credentials
+  secretKey: citus-database
+- envName: PATRONI_REPLICATION_PASSWORD
+  secretName: citus-credentials
+  secretKey: replication-password
+- envName: PATRONI_REPLICATION_USERNAME
+  secretName: citus-credentials
+  secretKey: replication-username
+- envName: PATRONI_SUPERUSER_PASSWORD
+  secretName: citus-credentials
+  secretKey: superuser-password
+- envName: PATRONI_SUPERUSER_USERNAME
+  secretName: citus-credentials
+  secretKey: superuser-username
+
+serviceAccount:
+  create: true
+  annotations: {}
+#     iam.gke.io/gcp-service-account: wi-citus-worker@onemg-dp-np.iam.gserviceaccount.com
+  name: "citus-demo"
+
+env:
+- name: PATRONI_KUBERNETES_BYPASS_API_SERVICE
+  value: 'true'
+- name: PATRONI_KUBERNETES_USE_ENDPOINTS
+  value: 'true'
+- name: PATRONI_KUBERNETES_LABELS
+  value: '{application: patroni, cluster-name: citusdemo}'
+- name: PATRONI_POSTGRESQL_PGPASS
+  value: /tmp/pgpass
+- name: PATRONI_POSTGRESQL_LISTEN
+  value: '0.0.0.0:5432'
+- name: PATRONI_RESTAPI_LISTEN
+  value: '0.0.0.0:8008'
+
+coordinator:
+  replicas: 2
+  type: coordinator
+  group: '0'
+  terminationGracePeriodSeconds: 0
+  readinessProbe:
+    httpGet:
+      scheme: HTTP
+      path: /readiness
+      port: 8008
+    initialDelaySeconds: 3
+    periodSeconds: 10
+    initialDelaySeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  ports:
+  - containerPort: 8008
+    protocol: TCP
+  - containerPort: 8008
+    protocol: TCP
+  volumeMounts:
+    mountPath: /home/postgres/pgdata
+    name: coordinator-pgdata
+  env: []
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: standard
+
+worker:
+  replicas: 2
+  type: worker
+  group: '1'
+  terminationGracePeriodSeconds: 0
+  readinessProbe:
+    httpGet:
+      scheme: HTTP
+      path: /readiness
+      port: 8008
+    initialDelaySeconds: 3
+    periodSeconds: 10
+    initialDelaySeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  ports:
+  - containerPort: 8008
+    protocol: TCP
+  - containerPort: 8008
+    protocol: TCP
+  volumeMounts:
+    mountPath: /home/postgres/pgdata
+    name: worker-pgdata-1
+  env: []
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: standard
+
+service:
+  type: ClusterIP
+  port: 5432
+  annotations: {}
+
+nodeSelector: {}
+affinity: {}
+tolerations: {}

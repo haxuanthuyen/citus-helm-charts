@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.cluster.name }}-1
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-group: '1'
+    citus-type: {{ .Values.worker.type }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  serviceName: {{ .Values.cluster.name }}-1
+  selector:
+    matchLabels:
+      tier: patroni-citus
+      release: {{ .Release.Name }}
+      application: {{ .Values.cluster.application }}
+      cluster-name: {{ .Values.cluster.name }}
+      citus-group: '1'
+      citus-type: {{ .Values.worker.type }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.citusPodAnnotations }}
+        {{- toYaml .Values.citusPodAnnotations | nindent 8 }}
+        {{- end }}
+      labels:
+        tier: patroni-citus
+        release: {{ .Release.Name }}
+        application: {{ .Values.cluster.application }}
+        cluster-name: {{ .Values.cluster.name }}
+        citus-group: '1'
+        citus-type: {{ .Values.worker.type }}
+    spec:
+      nodeSelector:
+{{ toYaml .Values.worker.nodeSelector | indent 8 }}
+      affinity:
+{{ toYaml .Values.worker.affinity | indent 8 }}
+      tolerations:
+{{ toYaml .Values.worker.tolerations | indent 8 }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+{{ toYaml .Values.securityContext.podConfig | indent 8 }}
+      initContainers:
+      - name: {{ .Values.cluster.name }}-init
+        command:
+          - "/bin/sh"
+          - "-c"
+          - "chown -R postgres:postgres /home/postgres/pgdata; chmod 0750 /home/postgres/pgdata/pgroot/data; ls -la /home/postgres"
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: true
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        volumeMounts:
+        - mountPath: {{ .Values.worker.volumeMounts.mountPath }}
+          name: {{ .Values.worker.volumeMounts.name }}
+      containers:
+      - name: {{ .Values.cluster.name }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+{{ toYaml .Values.securityContext.containerConfig | indent 10 }}
+        readinessProbe:
+{{ toYaml .Values.worker.readinessProbe | indent 10 }}
+        ports:
+{{ toYaml .Values.worker.ports | indent 8 }}
+        volumeMounts:
+        - mountPath: {{ .Values.worker.volumeMounts.mountPath }}
+          name: {{ .Values.worker.volumeMounts.name }}
+        env:
+        {{- include "standard_citus_env" . | indent 8 }}
+        - name: PATRONI_CITUS_GROUP
+          value: '1'
+        - name: PATRONI_POSTGRESQL_DATA_DIR
+          value: {{ .Values.worker.volumeMounts.mountPath }}/pgroot/data
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+{{- if not .Values.worker.persistence.enabled }}
+      volumes:
+      - name: {{ .Values.worker.volumeMounts.name }}
+        emptyDir: {}
+{{- else }}
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+         application: spilo
+         spilo-cluster: {{ .Values.cluster.name }}
+      name: {{ .Values.worker.volumeMounts.name }}
+    spec:
+     accessModes:
+     - ReadWriteOnce
+     resources:
+       requests:
+         storage: {{ .Values.worker.persistence.size }}
+     storageClassName: {{ .Values.worker.persistence.storageClassName }}
+{{- end }}

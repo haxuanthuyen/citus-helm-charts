@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.cluster.name }}-0
+  namespace: {{ .Release.Namespace }}
+  labels:
+    tier: patroni-citus
+    release: {{ .Release.Name }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: {{ .Release.Service }}
+    application: {{ .Values.cluster.application }}
+    cluster-name: {{ .Values.cluster.name }}
+    citus-group: "{{ .Values.coordinator.group }}"
+    citus-type: {{ .Values.coordinator.type }}
+spec:
+  replicas: {{ .Values.coordinator.replicas }}
+  serviceName: {{ .Values.cluster.name }}-0
+  selector:
+    matchLabels:
+      tier: patroni-citus
+      release: {{ .Release.Name }}
+      application: {{ .Values.cluster.application }}
+      cluster-name: {{ .Values.cluster.name }}
+      citus-group: "{{ .Values.coordinator.group }}"
+      citus-type: {{ .Values.coordinator.type }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.citusPodAnnotations }}
+        {{- toYaml .Values.citusPodAnnotations | nindent 8 }}
+        {{- end }}
+      labels:
+        tier: patroni-citus
+        release: {{ .Release.Name }}
+        application: {{ .Values.cluster.application }}
+        cluster-name: {{ .Values.cluster.name }}
+        citus-group: "{{ .Values.coordinator.group }}"
+        citus-type: {{ .Values.coordinator.type }}
+    spec:
+      nodeSelector:
+{{ toYaml .Values.coordinator.nodeSelector | indent 8 }}
+      affinity:
+{{ toYaml .Values.coordinator.affinity | indent 8 }}
+      tolerations:
+{{ toYaml .Values.coordinator.tolerations | indent 8 }}
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+{{ toYaml .Values.securityContext.podConfig | indent 8 }}
+      initContainers:
+      - name: {{ .Values.cluster.name }}-init
+        command:
+          - "/bin/sh"
+          - "-c"
+          - "chown -R postgres:postgres /home/postgres/pgdata; chmod 0750 /home/postgres/pgdata/pgroot/data; ls -la /home/postgres"
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: true
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        volumeMounts:
+        - mountPath: /home/postgres/pgdata
+          name: {{ .Values.coordinator.volumeMounts.name }}
+      containers:
+      - name: {{ .Values.cluster.name }}
+#         command:
+#           - "/bin/sh"
+#           - "-c"
+#           - "ls -la /home/postgres; /entrypoint.sh"
+        securityContext:
+{{ toYaml .Values.securityContext.containerConfig | indent 10 }}
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        readinessProbe:
+{{ toYaml .Values.coordinator.readinessProbe | indent 10 }}
+        ports:
+{{ toYaml .Values.coordinator.ports | indent 8 }}
+        volumeMounts:
+        - mountPath: {{ .Values.coordinator.volumeMounts.mountPath }}
+          name: {{ .Values.coordinator.volumeMounts.name }}
+        env:
+        {{- include "standard_citus_env" . | indent 8 }}
+        - name: PATRONI_CITUS_GROUP
+          value: '0'
+        - name: PATRONI_POSTGRESQL_DATA_DIR
+          value: {{ .Values.coordinator.volumeMounts.mountPath }}/pgroot/data
+      terminationGracePeriodSeconds: {{ .Values.coordinator.terminationGracePeriodSeconds }}
+{{- if not .Values.coordinator.persistence.enabled }}
+      volumes:
+      - name: {{ .Values.coordinator.volumeMounts.name }}
+        emptyDir: {}
+{{- else }}
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+         application: spilo
+         spilo-cluster: {{ .Values.cluster.name }}-0
+      name: {{ .Values.coordinator.volumeMounts.name }}
+    spec:
+     accessModes:
+     - ReadWriteOnce
+     resources:
+       requests:
+         storage: {{ .Values.coordinator.persistence.size }}
+     storageClassName: {{ .Values.coordinator.persistence.storageClassName }}
+{{- end }}
